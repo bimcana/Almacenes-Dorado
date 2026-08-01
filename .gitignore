@@ -1,0 +1,4 @@
+_build_*.pptx
+*.pptx
+Thumbs.db
+.DS_Store

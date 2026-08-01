@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Almacenes El Dorado — Recorrido fotográfico</title>
+<meta name="description" content="Recorrido fotográfico interactivo sobre planos — Almacenes El Dorado, Dorado Park.">
+<style>
+  :root{
+    --azul:#2B4C63; --azul-claro:#3E6B8A; --naranja:#DB7A2A; --naranja-luz:#F09A4B;
+    --fondo:#12171B; --panel:#1A2026; --tinta:#EAF0F4; --tenue:#8FA3B0;
+    --barra:60px; --iz:1;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overscroll-behavior:none}
+  body{background:var(--fondo);color:var(--tinta);overflow:hidden;
+       font-family:"Segoe UI",Calibri,system-ui,-apple-system,Arial,sans-serif;
+       display:flex;flex-direction:column}
+
+  header{height:var(--barra);flex:0 0 auto;display:flex;align-items:center;gap:13px;
+         padding:0 20px;background:var(--azul);border-bottom:1px solid rgba(255,255,255,.08);z-index:5}
+  .punto{width:7px;height:7px;border-radius:50%;background:var(--naranja)}
+  header .marca{font-size:15px;font-weight:600;letter-spacing:.03em}
+  header .sub{font-size:12.5px;color:#B9CEDD}
+  header .der{margin-left:auto;font-size:12.5px;color:#B9CEDD}
+  header .der b{color:#fff}
+
+  /* ---------- lienzo ---------- */
+  #viewport{flex:1 1 auto;min-height:0;position:relative;overflow:hidden;cursor:grab;
+            touch-action:none;background:radial-gradient(ellipse at 50% 40%,#1B2229 0%,var(--fondo) 70%)}
+  #viewport.arrastrando{cursor:grabbing}
+  #mundo{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+
+  /* la lámina se arma aquí: hoja, membrete y línea son vectoriales; solo el plano es imagen */
+  .sheet{position:absolute;top:0;left:0;width:__W__px;height:__H__px;display:none;
+         background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .sheet.on{display:block}
+  .titulo{__TITULO_CSS__ position:absolute;display:flex;align-items:center;color:#fff;
+          font-family:Calibri,"Segoe UI",Arial,sans-serif;line-height:1;white-space:nowrap;overflow:hidden}
+  .plan  {position:absolute;display:block;user-select:none;-webkit-user-drag:none;image-rendering:auto}
+
+  /* el icono conserva su tamaño y giro sobre el plano; el área de clic sí se
+     mantiene constante en pantalla para que siga siendo cómoda de alcanzar */
+  .cam{position:absolute;border:0;padding:0;background:transparent;cursor:pointer;
+       transform:translate(-50%,-50%);transform-origin:center}
+  .cam:focus{outline:none}
+  .cam .ico{width:100%;height:100%;display:block;user-select:none;-webkit-user-drag:none;
+       filter:drop-shadow(0 0 2px rgba(255,255,255,.9))}
+  .cam::after{content:"";position:absolute;left:50%;top:50%;width:38px;height:38px;border-radius:50%;
+    transform:translate(-50%,-50%) scale(var(--iz));border:2px solid transparent;
+    transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}
+  .cam:hover::after,.cam:focus-visible::after{
+    border-color:var(--naranja);background:rgba(219,122,42,.12);
+    box-shadow:0 0 0 3px rgba(219,122,42,.20)}
+  .cam .num{position:absolute;left:50%;bottom:50%;margin-bottom:22px;
+    transform:translateX(-50%) scale(var(--iz));transform-origin:bottom center;
+    background:var(--azul);color:#fff;font-size:11px;font-weight:700;letter-spacing:.04em;
+    padding:3px 7px;border-radius:4px;opacity:0;pointer-events:none;white-space:nowrap;
+    transition:opacity .16s ease;box-shadow:0 4px 12px rgba(0,0,0,.45)}
+  .cam:hover .num,.cam:focus-visible .num{opacity:1}
+
+  .zoombar{position:absolute;right:16px;bottom:16px;display:flex;flex-direction:column;gap:7px;z-index:6}
+  .zb{width:38px;height:38px;border-radius:10px;border:1px solid rgba(255,255,255,.14);
+      background:rgba(26,32,38,.92);color:var(--tinta);cursor:pointer;display:grid;place-items:center;
+      backdrop-filter:blur(6px);transition:background .15s ease,border-color .15s ease}
+  .zb:hover:not(:disabled){background:var(--azul-claro);border-color:transparent}
+  .zb:disabled{opacity:.28;cursor:default}
+  .zb svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .nivel{position:absolute;left:16px;bottom:16px;z-index:6;font-size:11.5px;color:var(--tenue);
+    background:rgba(26,32,38,.9);padding:6px 11px;border-radius:8px;letter-spacing:.05em;
+    border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(6px)}
+  .nivel b{color:var(--tinta);font-weight:600}
+
+  footer{height:var(--barra);flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:24px;
+    background:var(--panel);border-top:1px solid rgba(255,255,255,.07);padding:0 18px;z-index:5}
+  .nav{width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.16);
+    background:transparent;color:var(--tinta);cursor:pointer;display:grid;place-items:center;
+    transition:background .15s ease,border-color .15s ease,transform .15s ease}
+  .nav:hover:not(:disabled){background:var(--azul-claro);border-color:transparent;transform:translateY(-1px)}
+  .nav:disabled{opacity:.2;cursor:default}
+  .nav svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+  .rotulo{min-width:280px;text-align:center}
+  .rotulo .t{font-size:14px;font-weight:600}
+  .rotulo .n{font-size:11px;color:var(--tenue);letter-spacing:.09em;text-transform:uppercase;margin-top:3px}
+
+  #visor{position:fixed;inset:0;z-index:50;display:none;background:rgba(7,10,13,.95);
+         backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:44px}
+  #visor.on{display:flex}
+  .marco{position:relative;max-width:100%;max-height:100%;display:flex}
+  #foto{display:block;max-width:100%;max-height:calc(100vh - 130px);border-radius:7px;
+        box-shadow:0 26px 70px rgba(0,0,0,.72);background:#0b0e11;will-change:transform,opacity}
+  .cerrar{position:absolute;top:-18px;right:-18px;width:44px;height:44px;border-radius:50%;
+    background:var(--naranja);color:#fff;border:3px solid var(--fondo);cursor:pointer;
+    display:grid;place-items:center;box-shadow:0 8px 22px rgba(0,0,0,.55);
+    transition:transform .16s cubic-bezier(.16,1,.3,1),background .16s ease}
+  .cerrar:hover{background:var(--naranja-luz);transform:scale(1.09) rotate(90deg)}
+  .cerrar svg{width:19px;height:19px;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;fill:none}
+  .pie{position:absolute;left:0;right:0;bottom:-38px;display:flex;align-items:center;justify-content:center;gap:15px}
+  .pie .et{font-size:13px;color:var(--tenue);letter-spacing:.04em}
+  .pie .et b{color:#fff}
+  .paso{width:33px;height:33px;border-radius:50%;border:1px solid rgba(255,255,255,.18);
+    background:transparent;color:var(--tinta);cursor:pointer;display:grid;place-items:center}
+  .paso:hover:not(:disabled){background:rgba(255,255,255,.12)}
+  .paso:disabled{opacity:.2;cursor:default}
+  .paso svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  .aviso{position:fixed;left:50%;top:calc(var(--barra) + 14px);transform:translateX(-50%);z-index:8;
+    background:rgba(43,76,99,.95);color:#fff;font-size:12px;padding:9px 15px;border-radius:20px;
+    box-shadow:0 8px 24px rgba(0,0,0,.45);transition:opacity .6s ease;pointer-events:none;
+    max-width:min(340px,80vw);text-align:center}
+
+  @media (max-width:760px){
+    :root{--barra:54px}
+    .rotulo{min-width:0} .rotulo .t{font-size:12.5px}
+    #visor{padding:24px} .cerrar{top:-14px;right:-14px;width:38px;height:38px}
+    .zoombar{right:10px;bottom:10px} .nivel{left:10px;bottom:10px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="punto"></span>
+  <span class="marca">Almacenes El Dorado</span>
+  <span class="sub">· Recorrido fotográfico</span>
+  <span class="der"><b id="totalCam">54</b> cámaras</span>
+</header>
+
+<div id="viewport">
+  <div id="mundo"></div>
+  <div class="nivel">ZOOM <b id="pct">100%</b></div>
+  <div class="zoombar">
+    <button class="zb" id="zMas" title="Acercar (+)"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="zb" id="zMenos" title="Alejar (−)"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+    <button class="zb" id="zFitB" title="Ajustar a la ventana (doble clic)"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  </div>
+</div>
+
+<footer>
+  <button class="nav" id="ant" title="Lámina anterior (←)"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <div class="rotulo"><div class="t" id="rotTitulo">—</div><div class="n" id="rotNum">—</div></div>
+  <button class="nav" id="sig" title="Lámina siguiente (→)"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+</footer>
+
+<div id="visor" role="dialog" aria-modal="true">
+  <div class="marco">
+    <img id="foto" alt="">
+    <button class="cerrar" id="cerrar" title="Cerrar (Esc)"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="pie">
+      <button class="paso" id="fAnt"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="et">Cámara <b id="fNum">—</b> · <span id="fLam">—</span></div>
+      <button class="paso" id="fSig"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<div class="aviso" id="aviso">Rueda del ratón para acercar · arrastra para desplazar</div>
+
+<script>
+/* ====================== datos ======================
+   Los nombres de las láminas se editan aquí, en "titulo".        */
+const LAMINAS = __LAMINAS__;
+const GEO  = __GEO__;      // posición del plano dentro de la hoja + su tamaño nativo en píxeles
+const CAMS = __CAMS__;     // posición de cada cámara, en % de la hoja
+const W = __W__, H = __H__;  // hoja de 11 × 15 pulgadas, a 100 unidades por pulgada
+
+const CAPAS = `__CAPAS__`;
+const vp=document.getElementById('viewport'), mundo=document.getElementById('mundo');
+const visor=document.getElementById('visor'), foto=document.getElementById('foto');
+let actual=0, abiertaIdx=-1, origen=null, animando=false;
+let z=1, px=0, py=0, zFit=1, zMax=4;
+
+/* ====================== armado de láminas ====================== */
+LAMINAS.forEach((L,i)=>{
+  const g=GEO[i];
+  const d=document.createElement('div');
+  d.className='sheet'; d.dataset.i=i;
+  d.innerHTML = CAPAS + '<div class="titulo"></div>';
+  d.querySelector('.titulo').textContent=L.titulo;
+
+  const im=new Image(); im.className='plan'; im.alt=L.titulo; im.draggable=false;
+  im.style.left=g.x+'px'; im.style.top=g.y+'px';
+  im.style.width=g.w+'px'; im.style.height=g.h+'px';
+  im.loading = i===0 ? 'eager' : 'lazy';
+  im.src='planos/plano-'+L.n+'.webp';
+  d.appendChild(im);
+
+  (CAMS[i]?.cams||[]).forEach(c=>{
+    const b=document.createElement('button');
+    b.className='cam'; b.dataset.n=c.id; b.dataset.foto=c.id;
+    b.style.left=c.cx+'%'; b.style.top=c.cy+'%';
+    b.style.width=(c.w/100*W)+'px'; b.style.height=(c.h/100*H)+'px';
+    b.setAttribute('aria-label','Ver foto de la cámara '+c.id);
+    const ic=new Image(); ic.className='ico'; ic.src='camara.png'; ic.alt=''; ic.draggable=false;
+    ic.style.transform='rotate('+c.rot+'deg)';        // mismo giro que tiene en la diapositiva
+    b.appendChild(ic);
+    const nm=document.createElement('span'); nm.className='num'; nm.textContent=c.id;
+    b.appendChild(nm);
+    b.addEventListener('click',()=>{ if(!hubodrag) abrir(i,c.id,b); });
+    d.appendChild(b);
+  });
+  mundo.appendChild(d);
+});
+
+/* ====================== zoom y encuadre ====================== */
+function aplicar(){
+  const r=vp.getBoundingClientRect(), m=Math.min(140,r.width*0.35);
+  px=Math.max(m-W*z, Math.min(r.width-m, px));
+  py=Math.max(m-H*z, Math.min(r.height-m, py));
+  mundo.style.transform=`translate(${px}px,${py}px) scale(${z})`;
+  document.documentElement.style.setProperty('--iz',1/z);
+  document.getElementById('pct').textContent=Math.round(z/zFit*100)+'%';
+  document.getElementById('zMenos').disabled = z<=zFit*1.001;
+  document.getElementById('zMas').disabled   = z>=zMax*0.999;
+}
+function ajustar(){
+  const r=vp.getBoundingClientRect(), m=28;
+  zFit=Math.min((r.width-m*2)/W,(r.height-m*2)/H);
+  // tope: el píxel real del plano de esta lámina (no tiene sentido pasar de ahí)
+  const g=GEO[actual];
+  zMax=Math.max(zFit*1.5, g.px/g.w);
+  z=zFit; px=(r.width-W*z)/2; py=(r.height-H*z)/2;
+  aplicar();
+}
+function zoomA(nz,cx,cy){
+  nz=Math.max(zFit,Math.min(zMax,nz));      // alejar nunca pasa de la página completa
+  px=cx-(cx-px)*(nz/z); py=cy-(cy-py)*(nz/z);
+  z=nz; aplicar();
+}
+vp.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const r=vp.getBoundingClientRect();
+  const f=Math.exp(-e.deltaY*(e.deltaMode===1?0.05:0.0016));
+  zoomA(z*f, e.clientX-r.left, e.clientY-r.top);
+},{passive:false});
+function zoomBoton(f){const r=vp.getBoundingClientRect();zoomA(z*f,r.width/2,r.height/2)}
+document.getElementById('zMas').onclick=()=>zoomBoton(1.45);
+document.getElementById('zMenos').onclick=()=>zoomBoton(1/1.45);
+document.getElementById('zFitB').onclick=ajustar;
+vp.addEventListener('dblclick',e=>{ if(!e.target.closest('.cam')) ajustar(); });
+
+/* ---- desplazamiento ---- */
+let arrastrando=false,hubodrag=false,capturado=false,x0=0,y0=0,p0x=0,p0y=0,punteros=new Map(),pinch0=null;
+vp.addEventListener('pointerdown',e=>{
+  punteros.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(punteros.size===2){
+    const [a,b]=[...punteros.values()];
+    pinch0={d:Math.hypot(a.x-b.x,a.y-b.y),z:z,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2};
+    arrastrando=false; return;
+  }
+  if(e.button!==0 && e.pointerType==='mouse') return;
+  arrastrando=true; hubodrag=false; capturado=false;
+  x0=e.clientX; y0=e.clientY; p0x=px; p0y=py;
+  vp.classList.add('arrastrando');
+});
+vp.addEventListener('pointermove',e=>{
+  if(punteros.has(e.pointerId)) punteros.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(punteros.size===2&&pinch0){
+    const [a,b]=[...punteros.values()];
+    const r=vp.getBoundingClientRect();
+    zoomA(pinch0.z*(Math.hypot(a.x-b.x,a.y-b.y)/pinch0.d), pinch0.cx-r.left, pinch0.cy-r.top);
+    hubodrag=true; return;
+  }
+  if(!arrastrando) return;
+  const dx=e.clientX-x0, dy=e.clientY-y0;
+  if(!hubodrag&&(Math.abs(dx)>4||Math.abs(dy)>4)){
+    hubodrag=true;                                  // solo entonces se toma el puntero,
+    try{vp.setPointerCapture(e.pointerId);capturado=true}catch(err){}   // así el clic limpio llega a la cámara
+  }
+  if(!hubodrag) return;
+  px=p0x+dx; py=p0y+dy; aplicar();
+});
+function soltar(e){
+  punteros.delete(e.pointerId);
+  if(punteros.size<2) pinch0=null;
+  if(capturado){try{vp.releasePointerCapture(e.pointerId)}catch(err){} capturado=false}
+  arrastrando=false; vp.classList.remove('arrastrando');
+  setTimeout(()=>{hubodrag=false},0);
+}
+vp.addEventListener('pointerup',soltar);
+vp.addEventListener('pointercancel',soltar);
+vp.addEventListener('contextmenu',e=>e.preventDefault());
+window.addEventListener('resize',ajustar);
+
+/* ====================== láminas ====================== */
+function irA(i){
+  actual=Math.max(0,Math.min(LAMINAS.length-1,i));
+  [...mundo.children].forEach((s,k)=>s.classList.toggle('on',k===actual));
+  document.getElementById('rotTitulo').textContent=LAMINAS[actual].titulo;
+  document.getElementById('rotNum').textContent=
+    `Lámina ${actual+1} de ${LAMINAS.length} · ${(CAMS[actual]?.cams||[]).length} cámaras`;
+  document.getElementById('ant').disabled=actual===0;
+  document.getElementById('sig').disabled=actual===LAMINAS.length-1;
+  ajustar();
+}
+document.getElementById('ant').onclick=()=>irA(actual-1);
+document.getElementById('sig').onclick=()=>irA(actual+1);
+
+/* ====================== visor de fotos ====================== */
+function camsDe(i){return (CAMS[i]?.cams||[]).map(c=>c.id)}
+function botonDe(i,id){return mundo.children[i].querySelector(`.cam[data-foto="${id}"]`)}
+async function abrir(iLam,id,btn){
+  if(animando) return;
+  abiertaIdx=camsDe(iLam).indexOf(id); origen=btn;
+  document.getElementById('aviso').style.opacity=0;
+  await pintar(iLam,id,btn,true);
+}
+async function pintar(iLam,id,btn,animar){
+  animando=true;
+  foto.src='fotos/'+id+'.webp';
+  document.getElementById('fNum').textContent=id;
+  document.getElementById('fLam').textContent=LAMINAS[iLam].titulo;
+  const lista=camsDe(iLam);
+  document.getElementById('fAnt').disabled=abiertaIdx<=0;
+  document.getElementById('fSig').disabled=abiertaIdx>=lista.length-1;
+  visor.classList.add('on');
+  try{await foto.decode()}catch(e){}
+  if(animar&&btn){
+    const o=btn.getBoundingClientRect(), f=foto.getBoundingClientRect();
+    const s=Math.max(o.width/f.width,o.height/f.height);
+    const dx=(o.left+o.width/2)-(f.left+f.width/2), dy=(o.top+o.height/2)-(f.top+f.height/2);
+    const a=foto.animate(
+      [{transform:`translate(${dx}px,${dy}px) scale(${s})`,opacity:.35,borderRadius:'50%'},
+       {transform:'none',opacity:1,borderRadius:'7px'}],
+      {duration:430,easing:'cubic-bezier(.16,1,.3,1)'});
+    visor.animate([{opacity:0},{opacity:1}],{duration:240,easing:'ease-out'});
+    await a.finished;
+  }
+  animando=false;
+}
+async function cerrarVisor(){
+  if(animando) return; animando=true;
+  const id=camsDe(actual)[abiertaIdx], btn=botonDe(actual,id)||origen;
+  const o=btn.getBoundingClientRect(), f=foto.getBoundingClientRect();
+  const s=Math.max(o.width/f.width,o.height/f.height);
+  const dx=(o.left+o.width/2)-(f.left+f.width/2), dy=(o.top+o.height/2)-(f.top+f.height/2);
+  const a=foto.animate(
+    [{transform:'none',opacity:1,borderRadius:'7px'},
+     {transform:`translate(${dx}px,${dy}px) scale(${s})`,opacity:0,borderRadius:'50%'}],
+    {duration:360,easing:'cubic-bezier(.5,0,.75,0)'});
+  visor.animate([{opacity:1},{opacity:0}],{duration:330,easing:'ease-in'});
+  await a.finished;
+  visor.classList.remove('on'); foto.removeAttribute('src');
+  animando=false; if(btn) btn.focus({preventScroll:true});
+}
+function saltar(d){
+  const lista=camsDe(actual), j=abiertaIdx+d;
+  if(j<0||j>=lista.length||animando) return;
+  abiertaIdx=j; pintar(actual,lista[j],null,false);
+}
+document.getElementById('cerrar').onclick=cerrarVisor;
+document.getElementById('fAnt').onclick=()=>saltar(-1);
+document.getElementById('fSig').onclick=()=>saltar(1);
+visor.addEventListener('click',e=>{if(e.target===visor) cerrarVisor()});
+
+document.addEventListener('keydown',e=>{
+  const ab=visor.classList.contains('on');
+  if(e.key==='Escape'&&ab) return cerrarVisor();
+  if(e.key==='ArrowLeft')  ab?saltar(-1):irA(actual-1);
+  if(e.key==='ArrowRight') ab?saltar(1):irA(actual+1);
+  if(!ab){
+    if(e.key==='+'||e.key==='=') zoomBoton(1.45);
+    if(e.key==='-'||e.key==='_') zoomBoton(1/1.45);
+    if(e.key==='0'||e.key.toLowerCase()==='f') ajustar();
+  }
+});
+
+document.getElementById('totalCam').textContent=CAMS.reduce((a,s)=>a+s.cams.length,0);
+irA(0);
+addEventListener('load',ajustar);
+setTimeout(()=>document.getElementById('aviso').style.opacity=0,7000);
+</script>
+</body>
+</html>
