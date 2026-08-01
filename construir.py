@@ -22,8 +22,9 @@ Image.MAX_IMAGE_PIXELS = None
 EMU = 914400.0
 U   = 100.0          # unidades del lienzo por pulgada
 ANCHO_FOTO   = 1920  # lado mayor de las fotografías
-CALIDAD_PLANO = 90
-CALIDAD_FOTO  = 82
+PLANO_SIN_PERDIDA = True   # los planos son línea sobre blanco: sin pérdida pesa MENOS que con pérdida
+CALIDAD_PLANO = 90         # solo se usa si PLANO_SIN_PERDIDA = False
+CALIDAD_FOTO  = 86
 
 NS = {'p':'http://schemas.openxmlformats.org/presentationml/2006/main',
       'a':'http://schemas.openxmlformats.org/drawingml/2006/main',
@@ -171,7 +172,10 @@ def construir(pptx, dir_fotos, salida=AQUI, titulos=None):
         l,t,r,b = [v/100000.0 for v in pl['rec']]
         rec = im.crop((round(iw*l), round(ih*t), round(iw*(1-r)), round(ih*(1-b))))
         destino = os.path.join(salida,'planos',f'plano-{L["n"]}.webp')
-        rec.convert('RGB').save(destino,'WEBP',quality=CALIDAD_PLANO,method=6)
+        if PLANO_SIN_PERDIDA:
+            rec.convert('RGB').save(destino,'WEBP',lossless=True,method=5)
+        else:
+            rec.convert('RGB').save(destino,'WEBP',quality=CALIDAD_PLANO,method=6)
         geo.append(dict(n=L['n'], x=round(pl['x'],3), y=round(pl['y'],3),
                         w=round(pl['w'],3), h=round(pl['h'],3),
                         px=rec.size[0], py=rec.size[1]))
